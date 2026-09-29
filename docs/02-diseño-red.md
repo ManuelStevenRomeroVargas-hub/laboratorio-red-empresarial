@@ -103,26 +103,3 @@ fallo de alguno de los enlaces.
 
 OSPF se utiliza para gestionar dinámicamente estas rutas y permitir la
 convergencia de la red ante cambios en la topología.
-
-## 2.9 Resumen de la arquitectura
-
-La arquitectura puede resumirse de la siguiente forma:
-
-```text
-                    ┌─────────────┐
-                    │   AMPOSTA   │
-                    │ 192.168.10.0│
-                    └──────┬──────┘
-                           │
-                           │
-                    ┌──────┴──────┐
-                    │   TORTOSA   │
-                    │ Sede central│
-                    └──────┬──────┘
-                           │
-                     ┌─────┴─────┐
-                     │           │
-                ┌────▼───┐   ┌───▼────┐
-                │ROQUETES│   │L'ALDEA │
-                │172.16.1│   │172.16.0│
-                └────────┘   └────────┘
