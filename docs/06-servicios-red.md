@@ -14,8 +14,6 @@ Los servicios tratados en este laboratorio son:
 - Servicios de seguridad asociados al acceso de los dispositivos.
 - DHCP Snooping y Dynamic ARP Inspection como mecanismos de protección de acceso.
 
-> **Nota:** no se documenta un servicio DNS como servicio implementado porque las evidencias disponibles del laboratorio no muestran una configuración o servidor DNS específico.
-
 ---
 
 ## 6.2 DHCP
