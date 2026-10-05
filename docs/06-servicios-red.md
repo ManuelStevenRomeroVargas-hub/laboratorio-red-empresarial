@@ -268,7 +268,6 @@ La separación de servicios permite que cada función tenga un ámbito definido:
 | ACL VTY | Routers y switches | Restringir origen del acceso administrativo |
 | DHCP Snooping | SW-AMP-01 | Controlar tráfico DHCP por confianza de puertos |
 | DAI | SW-AMP-01 | Protección ARP configurada, actualmente inactiva |
-| DNS | No evidenciado | No se documenta como servicio implementado |
 
 ---
 
