@@ -1,4 +1,4 @@
-# 06 - Servicios de red
+# 6 - Servicios de red
 
 ## 6.1 Objetivo
 
