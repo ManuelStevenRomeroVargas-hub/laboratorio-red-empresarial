@@ -219,18 +219,3 @@ Dos aspectos importantes de la revisión técnica:
 - DAI aparece configurado, pero su estado operativo es `Inactive` y las validaciones MAC/IP están deshabilitadas.
 
 Estos resultados permiten distinguir entre configuración aplicada y funcionamiento comprobado, y proporcionan tareas concretas para una futura fase de pruebas y endurecimiento.
-
-## 7.13 Evidencias recomendadas
-
-Para el repositorio, se recomienda añadir capturas breves y legibles de:
-
-1. `show port-security`
-2. `show port-security interface f0/1`
-3. `show ip dhcp snooping`
-4. `show ip dhcp snooping binding`
-5. `show ip arp inspection`
-6. `show ip arp inspection interfaces`
-7. `show access-lists`
-8. La sección de `show running-config` que muestre las líneas VTY y la configuración de las interfaces de acceso.
-
-Las evidencias deben corresponder al estado real del archivo Packet Tracer y no incluir contraseñas u otros secretos.
