@@ -234,37 +234,9 @@ Comprobaciones realizadas y evidenciadas en `docs/`:
   `show ip arp inspection`              Configurado, operación `Inactive`
   -------------------------------------------------------------------------
 
-### Limitaciones conocidas
-
--   **DAI no está operativo:** requiere revisar requisitos de
-    plataforma, estado de DHCP Snooping y disponibilidad de
-    bindings/entradas ARP estáticas, y volver a verificar.
--   **Tabla de bindings de DHCP Snooping vacía:** falta generar una
-    concesión desde un cliente de la VLAN y comprobar que aparece la
-    asociación MAC/IP/VLAN/interfaz.
--   **PortFast y BPDU Guard:** están en el diseño, pero falta evidencia
-    por interfaz (`show spanning-tree interface ... detail`).
--   **VLAN 50 (VOICE):** no está permitida en los trunks del core.
-
-Estas limitaciones son la base de la siguiente fase del proyecto.
-
-## Qué mejoraría / próximos pasos
-
--   Activar y validar DAI (bindings + pruebas de ARP
-    legítimo/ilegítimo).
--   Generar bindings DHCP Snooping reales y documentarlos.
--   Obtener evidencia por interfaz de PortFast y BPDU Guard.
--   Revisar la coherencia de la VLAN 50 en trunks (¿se necesita?,
-    ¿dónde?).
--   Añadir HSRP/VRRP para redundancia de gateway.
--   Añadir IPv6 (SLAAC + OSPFv3).
--   Centralizar NTP y syslog.
--   Automatizar backups de configuración con Python + Netmiko (fuera de
-    Packet Tracer, sobre GNS3/EVE-NG).
-
 ## Cómo abrir el laboratorio
 
-1.  Instalar Cisco Packet Tracer (versión usada: `X.X`).
+1.  Instalar Cisco Packet Tracer (versión usada: `9.0.0.0810`).
 2.  Abrir `red-empresarial.pkt`.
 3.  Esperar a que STP y OSPF converjan (aproximadamente 1 minuto).
 4.  Comprobar con `show ip ospf neighbor` en cada router.
