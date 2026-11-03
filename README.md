@@ -232,6 +232,7 @@ Comprobaciones realizadas y evidenciadas en `docs/`:
   `show ip dhcp snooping binding`       0 bindings
 
   `show ip arp inspection`              Configurado, operación `Inactive`
+  
   -------------------------------------------------------------------------
 
 ## Cómo abrir el laboratorio
