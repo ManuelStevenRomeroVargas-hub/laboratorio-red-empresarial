@@ -33,7 +33,7 @@ necesita:
 
 ## Topología
 
-Diagrama: [`topologia.png`](./topologia.png)
+Diagrama: [`topologia.png`](./diagramas/topologia.png)
 
 - **Tortosa** es la sede principal y actúa como núcleo de la red.
 - Cada sede tiene un router que la conecta al resto vía OSPF.
