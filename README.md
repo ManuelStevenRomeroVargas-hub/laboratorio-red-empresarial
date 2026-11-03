@@ -1,165 +1,297 @@
-# Laboratorio de Red Empresarial — 4 sedes con OSPF
+# Laboratorio de Red Empresarial --- 4 sedes con OSPF
 
-Red empresarial simulada en Cisco Packet Tracer: cuatro sedes
-interconectadas, segmentación por VLANs, routing dinámico con OSPF,
-seguridad de capa 2 y acceso remoto seguro por SSH.
+Red empresarial multisede simulada en Cisco Packet Tracer: cuatro sedes
+interconectadas (Tortosa, Amposta, Roquetes y L'Aldea), segmentación por
+VLAN, routing dinámico con OSPF, servicios de red (DHCP, SSH) y
+mecanismos de seguridad de capa 2.
+
+El proyecto está documentado en `docs/` y las evidencias de verificación
+(salidas de comandos `show`) están referenciadas en cada sección.
 
 ## Índice
-- [Escenario](#escenario)
-- [Topología](#topología)
-- [Direccionamiento](#direccionamiento)
-- [Tecnologías y decisiones de diseño](#tecnologías-y-decisiones-de-diseño)
-- [Seguridad de capa 2](#seguridad-de-capa-2)
-- [Pruebas realizadas](#pruebas-realizadas)
-- [Problemas encontrados y solución](#problemas-encontrados-y-solución)
-- [Cómo abrir el laboratorio](#cómo-abrir-el-laboratorio)
-- [Qué mejoraría](#qué-mejoraría)
+
+-   [Escenario](#escenario)
+-   [Topología](#topología)
+-   [Direccionamiento](#direccionamiento)
+-   [Routing: OSPF](#routing-ospf)
+-   [Switching: VLANs, trunks y
+    EtherChannel](#switching-vlans-trunks-y-etherchannel)
+-   [Servicios de red](#servicios-de-red)
+-   [Seguridad de capa 2](#seguridad-de-capa-2)
+-   [Verificación y estado real del
+    laboratorio](#verificación-y-estado-real-del-laboratorio)
+-   [Qué mejoraría / próximos pasos](#qué-mejoraría--próximos-pasos)
+-   [Cómo abrir el laboratorio](#cómo-abrir-el-laboratorio)
+-   [Estructura del repositorio](#estructura-del-repositorio)
+-   [Autor](#autor)
 
 ## Escenario
 
 Empresa con cuatro sedes (Tortosa, Amposta, Roquetes y L'Aldea) que
 necesita:
 
-- Comunicación entre todas las sedes.
-- Segmentación del tráfico por departamentos dentro de cada sede.
-- Que cada sede tenga su propio servidor DHCP para sus VLANs.
-- Acceso remoto seguro a los routers (SSH, no Telnet).
-- Protección frente a bucles, tormentas de broadcast y ataques
-  básicos de capa 2 (MAC flooding, ARP spoofing, DHCP rogue).
+-   Comunicación entre todas las sedes.
+-   Segmentación del tráfico por función dentro de Tortosa (sede
+    principal).
+-   DHCP en las redes donde se decide usar direccionamiento dinámico.
+-   Acceso remoto seguro por SSH, restringido por ACL.
+-   Protección frente a riesgos básicos de capa 2 (MAC flooding, DHCP
+    rogue, ARP spoofing y bucles).
 
-> Nota: el escenario es inventado por mí para dar contexto realista
-> al laboratorio. Los requisitos son los que yo mismo definí antes
-> de configurar nada.
+> El escenario es inventado por mí para dar un contexto realista al
+> laboratorio. Los requisitos los definí antes de configurar nada.
 
 ## Topología
 
-Diagrama: [`topologia.png`](./diagramas/topologia-red.png)
+Diagrama: [`diagramas/topologia-red.png`](./diagramas/topologia-red.png)
 
-- **Tortosa** es la sede principal y actúa como núcleo de la red.
-- Cada sede tiene un router que la conecta al resto vía OSPF.
-- Dentro de cada sede hay switches de acceso con VLANs por
-  departamento y un switch de distribución/core con EtherChannel
-  hacia los de acceso.
+-   **Tortosa** es la sede principal y concentra la infraestructura de
+    switching segmentada por VLAN y el routing inter-VLAN en `RTR-TOR`.
+-   **Amposta, Roquetes y L'Aldea** tienen una red LAN única cada una.
+-   Las sedes están conectadas mediante **enlaces punto a punto /30** y
+    participan en un dominio **OSPF de área única (Area 0)**.
+-   La topología WAN forma un **anillo de cuatro routers**, lo que
+    proporciona caminos alternativos entre sedes.
 
-(Ver `topologia.png` para el detalle de enlaces y equipos.)
+``` text
+                         209.165.200.0/30
+                    RTR-TOR ───────── RTR-AMP
+                     .1                  .2
+                      │                    │
+          209.165.200.4/30        209.165.200.12/30
+                      │                    │
+                     .5                    .14
+                      │                    │
+                    RTR-ALD ───────── RTR-ROQ
+                     .6                  .13
+                         209.165.200.8/30
+```
 
 ## Direccionamiento
 
-Cada sede usa un bloque /16 propio, subdividido en /24 por VLAN:
+### Tortosa
 
-| Sede      | Bloque          | VLAN | Red             | Gateway        |
-|-----------|-----------------|------|-----------------|----------------|
-| Tortosa   | 10.10.0.0/16    | 10   | 10.10.10.0/24   | 10.10.10.1     |
-|           |                 | 20   | 10.10.20.0/24   | 10.10.20.1     |
-|           |                 | 30   | 10.10.30.0/24   | 10.10.30.1     |
-| Amposta   | 10.20.0.0/16    | 10   | 10.20.10.0/24   | 10.20.10.1     |
-|           |                 | 20   | 10.20.20.0/24   | 10.20.20.1     |
-| Roquetes  | 10.30.0.0/16    | 10   | 10.30.10.0/24   | 10.30.10.1     |
-|           |                 | 20   | 10.30.20.0/24   | 10.30.20.1     |
-| L'Aldea   | 10.40.0.0/16    | 10   | 10.40.10.0/24   | 10.40.10.1     |
-|           |                 | 20   | 10.40.20.0/24   | 10.40.20.1     |
+Segmentación en subredes `/26` sobre `192.168.1.0/24`.
 
-- **Enlaces entre routers**: /30 dedicados.
-- **VLAN nativa**: 99 (no usada por usuarios).
-- **VLAN de gestión**: 999.
+    VLAN Nombre    Red                  Gateway
+  ------ --------- -------------------- -----------------
+      10 ADMIN     `192.168.1.0/26`     `192.168.1.1`
+      20 USERS     `192.168.1.64/26`    `192.168.1.65`
+      30 SERVERS   `192.168.1.128/26`   `192.168.1.129`
+      40 GUESTS    `192.168.1.192/26`   `192.168.1.193`
+      50 VOICE     (voz)                ---
+      99 NATIVE    (trunks)             ---
 
-> Ajusta esta tabla a tus rangos reales. Es la sección que más te van
-> a mirar: si los números no cuadran con el .pkt, se nota.
+### Resto de sedes
 
-## Tecnologías y decisiones de diseño
+  Sede       Red                 Gateway          Direccionamiento
+  ---------- ------------------- ---------------- ------------------
+  Amposta    `192.168.10.0/24`   `192.168.10.1`   DHCP (`RTR-AMP`)
+  Roquetes   `172.16.1.0/24`     `172.16.1.1`     Estático
+  L'Aldea    `172.16.0.0/24`     `172.16.0.1`     Estático
 
-- **VLANs + 802.1Q**: una VLAN por departamento y sede, para aislar
-  dominios de broadcast y aplicar políticas por segmento.
-- **Routing inter-VLAN (router-on-a-stick / SVIs)**: cada sede enruta
-  entre sus VLANs en su router.
-- **OSPF**: elegido frente a RIP por ser estándar abierto, de
-  convergencia rápida y escalable; frente a EIGRP por no depender de
-  Cisco. Una sola área (área 0) porque el tamaño del lab no justifica
-  jerarquía.
-- **EtherChannel / LACP**: agrupa enlaces entre switches para sumar
-  ancho de banda y tolerar el fallo de un cable, evitando que STP
-  bloquee uno de los enlaces.
-- **DHCP por sede**: cada router es servidor DHCP de sus VLANs; en
-  las VLANs sin servidor local se usa `ip helper-address` hacia el
-  router correspondiente.
-- **SSH con ACL**: acceso de gestión solo por SSH (Telnet deshabilitado)
-  y ACL que limita el origen de las conexiones a la VLAN de gestión.
+### Enlaces WAN (/30)
+
+  -------------------------------------------------------------------------------------------------------
+  Enlace              Red                   Router A    IP                 Router B    IP
+  ------------------- --------------------- ----------- ------------------ ----------- ------------------
+  Tortosa--Amposta    `209.165.200.0/30`    `RTR-TOR`   `209.165.200.1`    `RTR-AMP`   `209.165.200.2`
+
+  Tortosa--L'Aldea    `209.165.200.4/30`    `RTR-TOR`   `209.165.200.5`    `RTR-ALD`   `209.165.200.6`
+
+  L'Aldea--Roquetes   `209.165.200.8/30`    `RTR-ALD`   `209.165.200.10`   `RTR-ROQ`   `209.165.200.9`
+
+  Roquetes--Amposta   `209.165.200.12/30`   `RTR-ROQ`   `209.165.200.13`   `RTR-AMP`   `209.165.200.14`
+  -------------------------------------------------------------------------------------------------------
+
+La tabla completa por interfaz y por equipo está en
+`docs/03-direccionamiento.md`.
+
+## Routing: OSPF
+
+-   **Protocolo:** OSPFv2, proceso 10, área única (Area 0).
+-   **Router IDs:**
+    -   `RTR-TOR`: `1.1.1.1`
+    -   `RTR-ALD`: `2.2.2.2`
+    -   `RTR-ROQ`: `3.3.3.3`
+    -   `RTR-AMP`: `4.4.4.4`
+-   Las interfaces LAN están configuradas como pasivas: se anuncian las
+    redes sin intentar formar adyacencias con equipos finales.
+-   Adyacencias verificadas en estado **FULL** en los cuatro routers
+    (`show ip ospf neighbor`).
+-   **Redundancia:** la topología en anillo permite rutas de coste
+    equivalente. Por ejemplo, `RTR-ROQ` aprende las cuatro redes de
+    Tortosa con dos siguientes saltos (`209.165.200.10` y
+    `209.165.200.14`) y métrica `[110/3]`.
+
+**Decisión de diseño:** OSPF se eligió por ser un estándar abierto y
+ofrecer convergencia rápida, frente a EIGRP (propietario de Cisco) o RIP
+(limitado). Se utiliza una sola área porque el tamaño del laboratorio no
+justifica una jerarquía.
+
+Detalle completo y tablas de rutas: `docs/05-routing.md`.
+
+## Switching: VLANs, trunks y EtherChannel
+
+Infraestructura de Tortosa: un core (`SW-TOR-CORE`) y dos switches de
+acceso (`SW-TOR-ACC01`, `SW-TOR-ACC02`).
+
+-   **VLANs:** 10 ADMIN, 20 USERS, 30 SERVERS, 40 GUESTS, 50 VOICE y 99
+    NATIVE.
+-   **Trunks:** 802.1Q con VLAN 99 como nativa.
+-   **EtherChannel:** LACP (Po1, Po2 y Po3) entre core y acceso, y entre
+    los dos switches de acceso. Estado `SU` verificado con
+    `show etherchannel summary`; interfaces físicas en estado `P`.
+-   **Spanning Tree:** `SW-TOR-CORE` es Root Bridge para VLAN 10; para
+    VLAN 20 y 40 el root es otro switch y Po2 aparece como puerto root.
+
+> **Nota técnica:** en `SW-TOR-CORE`, la VLAN 50 (VOICE) no aparece
+> entre las VLAN permitidas en los trunks (10, 20, 30, 40 y 99). Está
+> documentado así de forma deliberada: es una incoherencia real del
+> laboratorio, no un error de la documentación.
+
+Detalle de asignación de puertos y verificaciones:
+`docs/04-switching.md`.
+
+## Servicios de red
+
+### DHCP
+
+-   **Tortosa:** `RTR-TOR` actúa como servidor DHCP para las VLANs de
+    usuario; el host `DHCP-SERVER` (`192.168.1.130/26`) forma parte de
+    la VLAN 30 con direccionamiento estático.
+-   **Amposta:** `RTR-AMP` proporciona DHCP a la LAN `192.168.10.0/24`.
+-   **Roquetes y L'Aldea:** direccionamiento estático en los equipos.
+
+### SSH
+
+-   Administración remota cifrada en routers y switches, con Telnet
+    deshabilitado.
+-   **ACL en VTY:** en Tortosa se restringe el acceso a la VLAN 10
+    (`192.168.1.0/26`); en el resto de sedes, a la LAN local.
+
+Detalle: `docs/06-servicios.md`.
 
 ## Seguridad de capa 2
 
-- **Port Security**: limita el número de MACs por puerto de acceso y
-  define acción ante violación. Objetivo: evitar MAC flooding y
-  conexión de switches no autorizados en puertos de usuario.
-- **PortFast**: solo en puertos de acceso finales, para que el host
-  no espere los estados de STP. **Nunca en trunks ni en puertos de
-  switch**.
-- **BPDU Guard**: en los mismos puertos con PortFast, para que si
-  alguien conecta un switch ahí, el puerto se bloquee. Complementa a
-  PortFast.
-- **DHCP Snooping**: marca como *trusted* solo el uplink hacia el
-  router/servidor DHCP y como *untrusted* los puertos de usuario, para
-  bloquear servidores DHCP rogue.
-- **Dynamic ARP Inspection (DAI)**: usa la tabla de DHCP Snooping
-  para validar ARP y frenar ARP spoofing.
+  -----------------------------------------------------------------------
+  Mecanismo               Ámbito                  Estado real documentado
+  ----------------------- ----------------------- -----------------------
+  SSH + ACL en VTY        Routers/switches        Configurado
 
-## Pruebas realizadas
+  Port Security           `SW-TOR-ACC01`          Habilitado, máximo 3
+                                                  MACs, violación
+                                                  `Shutdown`
 
-- `ping` entre VLANs de la misma sede y entre sedes (todo el rango).
-- `show ip ospf neighbor` en los 4 routers: adyacencias FULL.
-- `show etherchannel summary`: canal en uso (SU).
-- `show port-security interface`: MACs aprendidas y violaciones.
-- `show ip dhcp snooping binding`: bindings coherentes.
-- Cliente DHCP obtiene IP en cada VLAN.
-- SSH funciona desde la VLAN de gestión; Telnet rechazado.
+  Sticky MAC              `SW-TOR-ACC01`          Evidenciado en `Fa0/1`
 
-> Añade capturas en `capturas/` y enlázalas aquí. Sin capturas,
-> esta sección es una promesa; con capturas, es una prueba.
+  PortFast + BPDU Guard   Puertos de acceso       En diseño; falta
+                                                  evidencia por interfaz
 
-## Problemas encontrados y solución
+  DHCP Snooping           `SW-AMP-01`             Habilitado en VLAN 10 y
+                                                  1000; 0 bindings en la
+                                                  captura
 
-(Esta sección la escribes tú, sin IA. 5 problemas reales, con
-"síntoma → causa → solución". Ejemplos de estructura:)
+  DAI                     `SW-AMP-01`             Configurado en VLAN 10
+                                                  y 1000; estado
+                                                  `Inactive`
+  -----------------------------------------------------------------------
 
-1. **Síntoma**: OSPF no formaba adyacencia entre dos sedes.
-   **Causa**: las interfaces estaban en áreas distintas / máscara
-   distinta / MTU distinta.
-   **Solución**: unifiqué área y revisé `show ip ospf interface`.
+**Honestidad técnica:** DHCP Snooping está habilitado pero sin bindings
+observados; DAI está configurado pero inactivo. El README no presenta
+estas funciones como plenamente operativas. Es una decisión consciente:
+prefiero documentar el estado real y dejar claro qué falta por validar.
 
-2. **Síntoma**: los clientes de una VLAN no recibían IP.
-   **Causa**: faltaba `ip helper-address` en la SVI / el DHCP
-   snooping bloqueaba el OFFER porque el uplink no era trusted.
-   **Solución**: ...
+Detalle y buenas prácticas: `docs/07-seguridad.md`.
 
-3. **Síntoma**: Port Security ponía el puerto en err-disabled.
-   **Causa**: más MACs de las permitidas / MAC del switch vecino.
-   **Solución**: ...
+## Verificación y estado real del laboratorio
 
-4. **Síntoma**: un enlace del EtherChannel no se agregaba.
-   **Causa**: configuración distinta en los dos extremos (modo,
-   VLAN permitidas, velocidad).
-   **Solución**: ...
+Comprobaciones realizadas y evidenciadas en `docs/`:
 
-5. **Síntoma**: DAI bloqueaba ARP legítimo.
-   **Causa**: puerto no trusted / binding no aprendido.
-   **Solución**: ...
+  -------------------------------------------------------------------------
+  Comando                               Resultado documentado
+  ------------------------------------- -----------------------------------
+  `show ip ospf neighbor`               Adyacencias FULL en los 4 routers
+
+  `show ip route`                       Rutas O con distancia
+                                        administrativa 110 y caminos
+                                        alternativos documentados
+
+  `show etherchannel summary`           Po1, Po2 y Po3 en estado SU
+
+  `show interfaces trunk`               Trunks 802.1Q con VLAN nativa 99
+
+  `show spanning-tree`                  Root Bridge identificado por VLAN
+
+  `show port-security interface f0/1`   `Secure-up`, 1 sticky MAC y 0
+                                        violaciones
+
+  `show ip dhcp snooping`               Habilitado, Gi0/2 trusted y
+                                        FastEthernet untrusted
+
+  `show ip dhcp snooping binding`       0 bindings
+
+  `show ip arp inspection`              Configurado, operación `Inactive`
+  -------------------------------------------------------------------------
+
+### Limitaciones conocidas
+
+-   **DAI no está operativo:** requiere revisar requisitos de
+    plataforma, estado de DHCP Snooping y disponibilidad de
+    bindings/entradas ARP estáticas, y volver a verificar.
+-   **Tabla de bindings de DHCP Snooping vacía:** falta generar una
+    concesión desde un cliente de la VLAN y comprobar que aparece la
+    asociación MAC/IP/VLAN/interfaz.
+-   **PortFast y BPDU Guard:** están en el diseño, pero falta evidencia
+    por interfaz (`show spanning-tree interface ... detail`).
+-   **VLAN 50 (VOICE):** no está permitida en los trunks del core.
+
+Estas limitaciones son la base de la siguiente fase del proyecto.
+
+## Qué mejoraría / próximos pasos
+
+-   Activar y validar DAI (bindings + pruebas de ARP
+    legítimo/ilegítimo).
+-   Generar bindings DHCP Snooping reales y documentarlos.
+-   Obtener evidencia por interfaz de PortFast y BPDU Guard.
+-   Revisar la coherencia de la VLAN 50 en trunks (¿se necesita?,
+    ¿dónde?).
+-   Añadir HSRP/VRRP para redundancia de gateway.
+-   Añadir IPv6 (SLAAC + OSPFv3).
+-   Centralizar NTP y syslog.
+-   Automatizar backups de configuración con Python + Netmiko (fuera de
+    Packet Tracer, sobre GNS3/EVE-NG).
 
 ## Cómo abrir el laboratorio
 
-1. Instalar **Cisco Packet Tracer** (versión usada: X.X).
-2. Abrir `red-empresarial.pkt`.
-3. Esperar a que STP y OSPF converjan (~1 min).
-4. Comprobar con `show ip ospf neighbor` en cada router.
+1.  Instalar Cisco Packet Tracer (versión usada: `X.X`).
+2.  Abrir `red-empresarial.pkt`.
+3.  Esperar a que STP y OSPF converjan (aproximadamente 1 minuto).
+4.  Comprobar con `show ip ospf neighbor` en cada router.
+5.  Revisar las verificaciones listadas en `docs/`.
 
-## Qué mejoraría
+## Estructura del repositorio
 
-- Añadir **HSRP/VRRP** para redundancia de gateway.
-- **IPv6** (SLAAC + OSPFv3).
-- **NTP y syslog** centralizados.
-- **Automatización** de backups de configuración con Python + Netmiko
-  (fuera de Packet Tracer).
-- Migrar a **GNS3/EVE-NG** para trabajar con imágenes reales.
+``` text
+.
+├── README.md
+├── red-empresarial.pkt
+├── diagramas/
+│   └── topologia-red.png
+├── docs/
+│   ├── 01-descripcion.md
+│   ├── 02-diseno.md
+│   ├── 03-direccionamiento.md
+│   ├── 04-switching.md
+│   ├── 05-routing.md
+│   ├── 06-servicios.md
+│   └── 07-seguridad.md
+└── capturas/
+    └── (salidas de verificación)
+```
 
 ## Autor
 
-[Tu nombre] — Grado Medio SMR, Grado Superior ASIR y DAM, CCNA.
-[LinkedIn] · [GitHub]
+Manuel Steven Romero Vargas --- Grado Medio SMR, Grado Superior ASIR y DAM, CCNA.
+
+www.linkedin.com/in/manuel-steven-romero-vargas-6a72b820b - github.com/ManuelStevenRomeroVargas-hub/laboratorio-red-empresarial
