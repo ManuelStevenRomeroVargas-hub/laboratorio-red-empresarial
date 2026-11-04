@@ -237,41 +237,46 @@ show ip ospf neighbor
 
 Todas las adyacencias verificadas se encuentran en estado `FULL`.
 
+Salida de `show ip ospf neighbor` en los cuatro routers. Cada router
+mantiene dos adyacencias (una por enlace WAN del anillo), todas en
+estado `FULL`, lo que confirma que OSPF ha convergido en toda la
+topología:
+
+![Vecinos OSPF en los 4 routers](../capturas/routing/ospf-neighbors.png)
+
 ---
 
 ## 5.8 Parámetros OSPF de los enlaces WAN
 
-Los enlaces WAN utilizados para OSPF aparecen operativos y asociados al área 0.
+Los enlaces WAN utilizados para OSPF aparecen operativos y asociados al
+área 0.
 
-Por ejemplo, en `RTR-TOR`:
+Por ejemplo, en `RTR-TOR`, para la interfaz `GigabitEthernet0/0/1`:
 
-```text
-GigabitEthernet0/0/1
-IP: 209.165.200.1/30
-Area: 0
-Process ID: 10
-Router ID: 1.1.1.1
-Network Type: BROADCAST
-Cost: 1
-```
+    GigabitEthernet0/0/1
+    IP: 209.165.200.1/30
+    Area: 0
+    Process ID: 10
+    Router ID: 1.1.1.1
+    Network Type: BROADCAST
+    Cost: 1
 
-El vecino `4.4.4.4` aparece como Designated Router y `RTR-TOR` como Backup Designated Router.
+En este enlace, `RTR-TOR` actúa como **Designated Router (DR)** y
+`RTR-AMP` (`4.4.4.4`) como **Backup Designated Router (BDR)**. Es
+coherente con la salida de `show ip ospf neighbor`, donde `RTR-TOR`
+aparece como `FULL/DR` frente a `4.4.4.4`.
 
-En el segundo enlace WAN de `RTR-TOR`:
+![Parámetros OSPF de Gi0/0/1 en RTR-TOR](../capturas/routing/ospf-interface.png)
 
-```text
-GigabitEthernet0/0/0
-IP: 209.165.200.5/30
-Area: 0
-Process ID: 10
-Router ID: 1.1.1.1
-Network Type: BROADCAST
-Cost: 1
-```
+En el segundo enlace WAN de `RTR-TOR` (`GigabitEthernet0/0/0`,
+`209.165.200.5/30`), el vecino `2.2.2.2` (`RTR-ALD`) aparece como
+Designated Router. Los enlaces restantes presentan igualmente coste
+OSPF `1` en las evidencias obtenidas.
 
-El vecino `2.2.2.2` aparece como Designated Router.
-
-Los enlaces restantes presentan igualmente coste OSPF `1` en las evidencias obtenidas.
+> **Nota sobre DR/BDR**: en enlaces broadcast, OSPF elige un DR y un
+> BDR. Que un router sea DR en un enlace y BDR en otro es normal y no
+> indica un problema. En este laboratorio, `RTR-TOR` es DR en el enlace
+> con Amposta y BDR en el enlace con L'Aldea.
 
 ---
 
@@ -409,6 +414,13 @@ Las rutas hacia las redes de Tortosa aparecen con una métrica OSPF de:
 Esto permite disponer de múltiples caminos de coste equivalente hacia los destinos.
 
 También se observa un comportamiento equivalente desde `RTR-ALD` hacia la red de Amposta, donde existen dos siguientes saltos OSPF.
+
+En la siguiente captura se observa la tabla de routing de `RTR-ROQ`,
+donde las cuatro redes de Tortosa aparecen con dos siguientes saltos y
+métrica `[110/3]`, lo que demuestra la existencia de caminos de coste
+equivalente:
+
+![Rutas OSPF en RTR-ROQ](../capturas/routing/ospf-routes.png)
 
 ---
 
