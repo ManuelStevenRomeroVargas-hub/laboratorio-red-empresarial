@@ -210,69 +210,73 @@ El puerto `Fa0/1` se encuentra en estado `Secure-up`, con una dirección MAC apr
 
 ## 4.10 DHCP Snooping
 
-En la infraestructura de switching de Amposta se ha implementado DHCP Snooping como mecanismo de seguridad de Capa 2.
+En la infraestructura de switching de Amposta se ha implementado DHCP
+Snooping como mecanismo de seguridad de Capa 2.
 
-DHCP Snooping permite distinguir entre puertos confiables y no confiables para el tráfico DHCP.
-
-El objetivo principal es evitar que un dispositivo no autorizado pueda actuar como servidor DHCP dentro de la red.
+DHCP Snooping permite distinguir entre puertos confiables y no
+confiables para el tráfico DHCP. El objetivo principal es evitar que un
+dispositivo no autorizado pueda actuar como servidor DHCP dentro de la
+red.
 
 En `SW-AMP-01` se ha utilizado:
 
-```text
-show ip dhcp snooping
-```
+    show ip dhcp snooping
 
 El resultado confirma que DHCP Snooping está habilitado.
 
 Las VLAN configuradas para DHCP Snooping son:
 
-* VLAN 10
-* VLAN 1000
+- VLAN 10
+- VLAN 1000
 
-El puerto `GigabitEthernet0/2` aparece como `Trusted`, mientras que los puertos FastEthernet aparecen como `Untrusted`.
+El puerto `GigabitEthernet0/2` aparece como `Trusted`, mientras que los
+puertos FastEthernet aparecen como `Untrusted`.
+
+![Estado de DHCP Snooping en SW-AMP-01](../capturas/seguridad/dhcp-snooping-after.png)
 
 También se ha utilizado:
 
-```text
-show ip dhcp snooping binding
-```
+    show ip dhcp snooping binding
 
-En el momento de la comprobación no existen bindings registrados:
+En la captura se observan las entradas de binding generadas tras
+resolver la incidencia de Option 82 (ver
+[`08-incidencias.md`](./08-incidencias.md)).
 
-```text
-Total number of bindings: 0
-```
+> **Incidencia documentada**: inicialmente DHCP Snooping impedía el
+> funcionamiento de DHCP por la inserción de Option 82. El diagnóstico
+> y la solución están en [`08-incidencias.md`](./08-incidencias.md).
 
 ---
 
 ## 4.11 Dynamic ARP Inspection
 
-Dynamic ARP Inspection (DAI) se ha configurado en `SW-AMP-01` como mecanismo adicional de seguridad de Capa 2.
+Dynamic ARP Inspection (DAI) se ha configurado en `SW-AMP-01` como
+mecanismo adicional de seguridad de Capa 2.
 
-DAI permite validar determinados mensajes ARP utilizando la información obtenida por DHCP Snooping.
+DAI permite validar determinados mensajes ARP utilizando la información
+obtenida por DHCP Snooping.
 
 En `SW-AMP-01` se ha utilizado:
 
-```text
-show ip arp inspection
-```
+    show ip arp inspection
 
-El resultado muestra DAI configurado para las VLAN 10 y 1000.
+El resultado muestra DAI configurado para las VLAN 10 y 1000, con
+operación `Active` una vez generados los bindings de DHCP Snooping:
 
-En la comprobación realizada, ambas VLAN aparecen con:
+![Estado de DAI en SW-AMP-01](../capturas/seguridad/arp-inspection.png)
 
-```text
-Configuration: Enabled
-Operation: Inactive
-```
+También se ha comprobado el estado de confianza de las interfaces
+mediante:
 
-También se ha comprobado el estado de confianza de las interfaces mediante:
+    show ip arp inspection interfaces
 
-```text
-show ip arp inspection interfaces
-```
+Los puertos FastEthernet aparecen como `Untrusted`, mientras que
+`GigabitEthernet0/2` aparece como `Trusted`.
 
-Los puertos FastEthernet aparecen como `Untrusted`, mientras que `GigabitEthernet0/2` aparece como `Trusted`.
+> **Dependencia**: DAI requiere bindings de DHCP Snooping (o entradas
+> ARP estáticas) para validar el tráfico. Mientras la tabla de bindings
+> estuvo vacía, DAI aparecía como `Inactive`. Al generarse bindings,
+> pasó a `Active`.
 
 ---
 
@@ -432,17 +436,19 @@ El resultado confirma que DHCP Snooping está habilitado para las VLAN 10 y 1000
 
 El puerto `GigabitEthernet0/2` aparece como `Trusted`, mientras que los puertos FastEthernet aparecen como `Untrusted`.
 
-También se ha utilizado:
+En `SW-AMP-01` se ha utilizado:
 
-```text
-show ip dhcp snooping binding
-```
+    show ip dhcp snooping
+    show ip dhcp snooping binding
 
-En el momento de la comprobación no existen bindings registrados:
+El resultado confirma que DHCP Snooping está habilitado para las VLAN
+10 y 1000, con `GigabitEthernet0/2` como `Trusted` y los puertos
+FastEthernet como `Untrusted`. La tabla de bindings muestra las
+entradas generadas tras corregir la incidencia de Option 82.
 
-```text
-Total number of bindings: 0
-```
+![DHCP Snooping y bindings](../capturas/seguridad/dhcp-snooping-after.png)
+
+Los puertos FastEthernet aparecen como `Untrusted`, mientras que `GigabitEthernet0/2` aparece como `Trusted`.
 
 ### Dynamic ARP Inspection
 
@@ -454,11 +460,16 @@ show ip arp inspection
 
 El resultado muestra DAI configurado para las VLAN 10 y 1000, aunque en el momento de la comprobación aparece como `Inactive`.
 
-También se ha utilizado:
+En `SW-AMP-01` se ha utilizado:
 
-```text
-show ip arp inspection interfaces
-```
+    show ip arp inspection
+    show ip arp inspection interfaces
+
+El resultado muestra DAI configurado para las VLAN 10 y 1000 con
+operación `Active`, y `GigabitEthernet0/2` como `Trusted` frente a los
+puertos FastEthernet `Untrusted`.
+
+![DAI activo en SW-AMP-01](../capturas/seguridad/arp-inspection.png)
 
 Los puertos FastEthernet aparecen como `Untrusted`, mientras que `GigabitEthernet0/2` aparece como `Trusted`.
 
@@ -479,15 +490,11 @@ Los puertos FastEthernet aparecen como `Untrusted`, mientras que `GigabitEtherne
 | Port Security          | SW-TOR-ACC01 | `show port-security`                | Configurado                |
 | DHCP Snooping          | SW-AMP-01    | `show ip dhcp snooping`             | Habilitado                 |
 | DHCP Snooping bindings | SW-AMP-01    | `show ip dhcp snooping binding`     | 0 bindings                 |
-| Dynamic ARP Inspection | SW-AMP-01    | `show ip arp inspection`            | Configurado / Inactive     |
-| DAI interfaces         | SW-AMP-01    | `show ip arp inspection interfaces` | Interfaces comprobadas     |
+| DHCP Snooping bindings | SW-AMP-01    | `show ip dhcp snooping binding`     | Bindings registrados       |
+| Dynamic ARP Inspection | SW-AMP-01    | `show ip arp inspection`            | Configurado / **Active**   |
 
 ---
 
 ## 4.14 Conclusión
 
-Las comprobaciones realizadas permiten verificar la configuración de los principales mecanismos de switching implementados en la infraestructura.
-
-Se ha comprobado la configuración de las VLAN, los enlaces trunk, los Port-Channels mediante LACP, el estado de Spanning Tree y los mecanismos de seguridad de Capa 2.
-
-Las pruebas también permiten identificar el estado actual de DHCP Snooping y Dynamic ARP Inspection, incluyendo la ausencia de bindings DHCP Snooping y el estado `Inactive` de DAI en el momento de la comprobación.
+Las pruebas también permiten verificar el estado de DHCP Snooping y Dynamic ARP Inspection: DHCP Snooping está habilitado con bindings registrados tras resolver la incidencia de Option 82, y DAI opera en estado `Active` en las VLAN 10 y 1000.
