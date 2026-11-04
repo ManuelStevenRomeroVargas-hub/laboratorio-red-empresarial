@@ -150,16 +150,13 @@ En `SW-AMP-01` se ha configurado DHCP Snooping.
 
 La configuración está aplicada a:
 
-```text
-VLAN 10
-VLAN 1000
-```
+    VLAN 10
+    VLAN 1000
 
-La interfaz conectada hacia la infraestructura superior está marcada como confiable:
+La interfaz conectada hacia la infraestructura superior está marcada
+como confiable:
 
-```text
-GigabitEthernet0/2 → Trusted
-```
+    GigabitEthernet0/2 → Trusted
 
 Los puertos de acceso de los usuarios permanecen como no confiables.
 
@@ -168,29 +165,28 @@ La configuración permite que el switch diferencie entre:
 - tráfico DHCP procedente de puertos de confianza;
 - tráfico DHCP procedente de puertos de acceso.
 
-Además, está habilitada la inserción de Option 82 y no se permite Option 82 en puertos no confiables.
-
 La verificación disponible muestra:
 
-```text
-Switch DHCP snooping is enabled
+    Switch DHCP snooping is enabled
 
-DHCP snooping is configured on following VLANs:
-10,1000
+    DHCP snooping is configured on following VLANs:
+    10,1000
 
-Option 82 on untrusted port is not allowed
+    Insertion of option 82 is disabled
 
-GigabitEthernet0/2 → Trusted
-Fa0/1-Fa0/4        → Untrusted
-```
+    GigabitEthernet0/2 → Trusted
+    Fa0/1-Fa0/4        → Untrusted
 
-La tabla de bindings mostrada en la evidencia contiene actualmente:
+La tabla de bindings contiene las entradas generadas tras la
+resolución de la incidencia de Option 82:
 
-```text
-Total number of bindings: 0
-```
+    Total number of bindings: N
 
-Por tanto, la documentación debe distinguir entre **DHCP Snooping configurado** y **bindings DHCP observados en la captura**.
+![Estado de DHCP Snooping y bindings](../capturas/seguridad/dhcp-snooping-after.png)
+
+> **Incidencia documentada**: inicialmente DHCP Snooping impedía el
+> funcionamiento de DHCP por la inserción de Option 82. El diagnóstico
+> y la solución están en [`08-incidencias.md`](./08-incidencias.md).
 
 ---
 
@@ -200,38 +196,32 @@ También se ha configurado Dynamic ARP Inspection (DAI) en `SW-AMP-01`.
 
 Las VLAN configuradas para DAI son:
 
-```text
-VLAN 10
-VLAN 1000
-```
+    VLAN 10
+    VLAN 1000
 
 La evidencia disponible indica:
 
-```text
-Source Mac Validation      : Disabled
-Destination Mac Validation : Disabled
-IP Address Validation      : Disabled
-```
+    Source Mac Validation      : Disabled
+    Destination Mac Validation : Disabled
+    IP Address Validation      : Disabled
 
 Y muestra:
 
-```text
-VLAN 10    Configuration: Enabled    Operation: Inactive
-VLAN 1000  Configuration: Enabled    Operation: Inactive
-```
+    VLAN 10    Configuration: Enabled    Operation: Active
+    VLAN 1000  Configuration: Enabled    Operation: Active
 
-Por este motivo, el resultado debe documentarse con precisión:
+![Estado de DAI en SW-AMP-01](../capturas/seguridad/arp-inspection.png)
 
-> DAI está configurado para las VLAN indicadas, pero la evidencia disponible muestra la operación como **Inactive**.
+DAI depende de los bindings de DHCP Snooping para validar el tráfico
+ARP. Mientras la tabla de bindings estuvo vacía, DAI aparecía como
+`Inactive`. Al generarse bindings tras corregir la incidencia de
+Option 82, pasó a `Active`.
 
-No se debe presentar esta función como una protección DAI plenamente operativa en el estado capturado del laboratorio.
+Los puertos aparecen definidos con un estado de confianza coherente
+con la separación entre infraestructura y acceso:
 
-Los puertos aparecen definidos con un estado de confianza coherente con la separación entre infraestructura y acceso:
-
-```text
-GigabitEthernet0/2 → Trusted
-Puertos de acceso  → Untrusted
-```
+    GigabitEthernet0/2 → Trusted
+    Puertos de acceso  → Untrusted
 
 ---
 
@@ -267,7 +257,7 @@ La separación de servicios permite que cada función tenga un ámbito definido:
 | SSH | Routers y switches | Administración remota segura |
 | ACL VTY | Routers y switches | Restringir origen del acceso administrativo |
 | DHCP Snooping | SW-AMP-01 | Controlar tráfico DHCP por confianza de puertos |
-| DAI | SW-AMP-01 | Protección ARP configurada, actualmente inactiva |
+| DAI | SW-AMP-01 | Protección ARP configurada y operativa (`Active`) |
 
 ---
 
@@ -329,15 +319,18 @@ La combinación de estos servicios con la segmentación por VLAN, el routing OSP
 
 ## 6.10 Evidencias recomendadas
 
-Para la documentación final del proyecto, las evidencias más representativas de esta sección son:
+## 6.10 Evidencias
 
-1. `show ip dhcp pool`
-2. `show ip dhcp binding`
-3. `show ip dhcp snooping`
-4. `show ip dhcp snooping binding`
-5. `show ip arp inspection`
-6. `show ip arp inspection interfaces`
-7. `show access-lists`
-8. `show running-config` de las líneas VTY
+Las capturas de verificación de esta sección son:
+
+- DHCP pool y bindings en `RTR-TOR`:
+  [`capturas/servicios/dhcp-pool.png`](../capturas/servicios/dhcp-pool.png)
+  y [`capturas/servicios/dhcp-binding.png`](../capturas/servicios/dhcp-binding.png)
+- DHCP Snooping y bindings en `SW-AMP-01`:
+  [`capturas/seguridad/dhcp-snooping-after.png`](../capturas/seguridad/dhcp-snooping-after.png)
+- DAI en `SW-AMP-01`:
+  [`capturas/seguridad/arp-inspection.png`](../capturas/seguridad/arp-inspection.png)
+- ACL de VTY:
+  [`capturas/servicios/ssh-acl.png`](../capturas/servicios/ssh-acl.png)
 
 No es necesario incluir configuraciones completas si ya existe documentación específica de cada tecnología. Es preferible mostrar una salida breve que demuestre que el servicio está configurado y funcionando, o indicar explícitamente cuando la evidencia muestra una función configurada pero inactiva.
