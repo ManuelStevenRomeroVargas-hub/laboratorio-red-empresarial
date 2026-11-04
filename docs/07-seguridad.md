@@ -17,8 +17,9 @@ Las medidas descritas se basan en las configuraciones y salidas de verificación
 | Modo de violación `Shutdown` | `SW-TOR-ACC01` | Deshabilitar el puerto ante una violación | Configurado |
 | PortFast y BPDU Guard | Puertos de acceso | Agilizar la conexión de equipos finales y proteger frente a BPDUs inesperadas | Incluidos en el diseño; validar por interfaz |
 | DHCP Snooping | `SW-AMP-01` | Distinguir puertos DHCP confiables y no confiables | Habilitado; tabla de bindings vacía en la captura |
-| Dynamic ARP Inspection | `SW-AMP-01` | Validación de tráfico ARP | Configurado, pero aparece `Inactive` |
-| VLAN | Switching de Tortosa | Separar dominios de tráfico | VLAN configuradas; el aislamiento entre ellas requiere políticas de capa 3 |
+| PortFast y BPDU Guard | Puertos de acceso | Agilizar la conexión de equipos finales y proteger frente a BPDUs inesperadas | Incluidos en el diseño; evidencia por interfaz pendiente |
+| DHCP Snooping | `SW-AMP-01` | Distinguir puertos DHCP confiables y no confiables | Habilitado; bindings registrados tras corregir Option 82 |
+| Dynamic ARP Inspection | `SW-AMP-01` | Validación de tráfico ARP | Configurado y operativo (`Active`) |
 
 ## 7.3 Administración segura mediante SSH y ACL
 
@@ -69,6 +70,10 @@ show port-security interface f0/1
 show interfaces status
 ```
 
+![Port Security en SW-TOR-ACC01](../capturas/seguridad/port-security.png)
+
+![Detalle de Fa0/1](../capturas/seguridad/port-security-f01.png)
+
 ## 7.5 Sticky MAC
 
 Sticky MAC permite que el switch aprenda direcciones MAC dinámicamente y las trate como direcciones seguras sticky.
@@ -109,57 +114,60 @@ En `SW-AMP-01` está habilitado DHCP Snooping para las VLAN 10 y 1000.
 
 La evidencia indica:
 
-```text
-Switch DHCP snooping is enabled
+    Switch DHCP snooping is enabled
 
-DHCP snooping is configured on following VLANs:
-10,1000
+    DHCP snooping is configured on following VLANs:
+    10,1000
 
-GigabitEthernet0/2 → Trusted
-FastEthernet0/1-0/4 → Untrusted
-```
+    Insertion of option 82 is disabled
 
-La interfaz `GigabitEthernet0/2` está marcada como confiable y los puertos de acceso de usuario mostrados permanecen como no confiables. Esta separación ayuda a impedir que respuestas de servidores DHCP no autorizados lleguen desde puertos de usuario.
+    GigabitEthernet0/2 → Trusted
+    FastEthernet0/1-0/4 → Untrusted
 
-La tabla de bindings de la captura está vacía:
+La interfaz `GigabitEthernet0/2` está marcada como confiable y los
+puertos de acceso de usuario mostrados permanecen como no confiables.
+Esta separación ayuda a impedir que respuestas de servidores DHCP no
+autorizados lleguen desde puertos de usuario.
 
-```text
-Total number of bindings: 0
-```
+La tabla de bindings contiene las entradas generadas tras corregir la
+incidencia de Option 82:
 
-La evidencia confirma que DHCP Snooping está habilitado y que los roles de confianza están definidos, pero no muestra bindings aprendidos en ese momento.
+![DHCP Snooping y bindings en SW-AMP-01](../capturas/seguridad/dhcp-snooping-after.png)
 
 **Verificación:**
 
-```text
-show ip dhcp snooping
-show ip dhcp snooping binding
-```
+    show ip dhcp snooping
+    show ip dhcp snooping binding
 
-Para validar el funcionamiento completo, conviene generar una concesión DHCP desde un cliente de la VLAN correspondiente y comprobar si aparece la asociación MAC, IP, VLAN e interfaz en la tabla de bindings.
+> **Incidencia documentada**: la inserción de Option 82 impedía el
+> funcionamiento de DHCP. El diagnóstico y la solución están en
+> [`08-incidencias.md`](./08-incidencias.md).
 
 ## 7.8 Dynamic ARP Inspection (DAI)
 
-Dynamic ARP Inspection se ha configurado en `SW-AMP-01` para las VLAN 10 y 1000. La salida disponible muestra:
+Dynamic ARP Inspection se ha configurado en `SW-AMP-01` para las VLAN
+10 y 1000. La salida disponible muestra:
 
-```text
-VLAN 10    Configuration: Enabled    Operation: Inactive
-VLAN 1000  Configuration: Enabled    Operation: Inactive
-```
+    VLAN 10    Configuration: Enabled    Operation: Active
+    VLAN 1000  Configuration: Enabled    Operation: Active
 
-También indica que las validaciones de MAC de origen, MAC de destino y dirección IP están deshabilitadas.
+![Estado de DAI en SW-AMP-01](../capturas/seguridad/arp-inspection.png)
 
-Por ello, el estado debe describirse con precisión: **DAI está configurado, pero la evidencia disponible lo muestra inactivo**. No se debe presentar como una protección ARP operativa en el estado capturado.
+DAI depende de los bindings de DHCP Snooping (o de entradas ARP
+estáticas) para validar el tráfico. Mientras la tabla de bindings
+estuvo vacía, DAI aparecía como `Inactive`. Al generarse bindings tras
+corregir la incidencia de Option 82, pasó a `Active`.
 
-Antes de considerarlo plenamente funcional, hay que revisar los requisitos de la plataforma, el estado de DHCP Snooping y la disponibilidad de bindings o entradas ARP estáticas apropiadas para los equipos de las VLAN protegidas. Después, se debe verificar de nuevo el estado operativo y probar la conectividad legítima.
+Las validaciones de MAC de origen, MAC de destino y dirección IP
+aparecen deshabilitadas en la captura. Eso no impide que DAI valide el
+tráfico ARP contra los bindings de DHCP Snooping, pero conviene
+revisarlo si se quiere endurecer la política.
 
 **Verificación:**
 
-```text
-show ip arp inspection
-show ip arp inspection interfaces
-show ip dhcp snooping binding
-```
+    show ip arp inspection
+    show ip arp inspection interfaces
+    show ip dhcp snooping binding
 
 ## 7.9 Segmentación por VLAN
 
@@ -188,7 +196,7 @@ La VLAN 99 se utiliza como VLAN nativa en los trunks observados. Para endurecer 
 5. Mantener los puertos no utilizados deshabilitados o asignados a una VLAN sin uso, según la política del laboratorio.
 6. Aplicar PortFast y BPDU Guard solo en los puertos de acceso adecuados.
 7. Comprobar que DHCP Snooping tiene los puertos confiables correctamente identificados.
-8. No dar por operativo DAI hasta que la salida de verificación muestre un estado activo y se hayan realizado pruebas.
+8. Verificar que DAI está en estado `Active` y que existen bindings de DHCP Snooping antes de considerarlo una protección efectiva.
 9. Guardar las configuraciones una vez verificadas y conservar copias de respaldo.
 10. Evitar publicar contraseñas, claves privadas o credenciales reales en GitHub.
 
@@ -209,13 +217,27 @@ La VLAN 99 se utiliza como VLAN nativa en los trunks observados. Para endurecer 
 
 ## 7.12 Resultado y limitaciones observadas
 
-El laboratorio incluye varias capas de protección: administración remota mediante SSH, ACL en VTY, Port Security con sticky MAC y acción `Shutdown`, así como DHCP Snooping en el switch de Amposta.
+El laboratorio incluye varias capas de protección: administración
+remota mediante SSH, ACL en VTY, Port Security con sticky MAC y acción
+`Shutdown`, DHCP Snooping en el switch de Amposta y Dynamic ARP
+Inspection operativo.
 
-PortFast y BPDU Guard forman parte del diseño, aunque es necesario conservar evidencia por interfaz para confirmar su aplicación efectiva.
+PortFast y BPDU Guard forman parte del diseño, aunque es necesario
+conservar evidencia por interfaz para confirmar su aplicación efectiva.
 
-Dos aspectos importantes de la revisión técnica:
+El estado actual de los mecanismos de capa 2 es:
 
-- DHCP Snooping aparece habilitado, pero la tabla de bindings observada contiene cero entradas.
-- DAI aparece configurado, pero su estado operativo es `Inactive` y las validaciones MAC/IP están deshabilitadas.
+- **DHCP Snooping**: habilitado en VLAN 10 y 1000, con `Gi0/2` como
+  trusted y bindings registrados tras corregir la incidencia de
+  Option 82.
+- **DAI**: configurado y operativo (`Active`) en VLAN 10 y 1000, tras
+  generarse los bindings de DHCP Snooping.
 
-Estos resultados permiten distinguir entre configuración aplicada y funcionamiento comprobado, y proporcionan tareas concretas para una futura fase de pruebas y endurecimiento.
+Quedan como tareas pendientes:
+
+- Evidencia por interfaz de PortFast y BPDU Guard
+  (`show spanning-tree interface ... detail`).
+- Pruebas de ARP legítimo/ilegítimo para validar DAI de extremo a
+  extremo.
+- Revisión de la coherencia de la VLAN 50 (VOICE) en los trunks del
+  core.
